@@ -74,8 +74,8 @@ distribution = [0. for i in range(Nv)]
 discrete_v = [((0.5+j)*dv - v_max_inti) for j in range(Nv)]
 
 for i in range(N):
-    z = np.random.uniform(z0, 2*np.pi)
-    v = np.random.normal(0, v_max_inti/3)
+    z = np.random.uniform(z0, 2*np.pi)          # electrons uniformly distributed in z-space
+    v = np.random.normal(0, v_max_inti/3)       # electron velocities are Maxwellian distributed 
     positions.append(z)
     velocities.append(v)
 
