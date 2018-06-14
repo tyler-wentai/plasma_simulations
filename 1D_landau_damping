@@ -1,0 +1,119 @@
+### -------------------------------------------------- ###
+#                                                        #
+#   Below is a very simple program that demonstrates     #
+#   the flattening of the velocity distribution of       #
+#   an electron plasma due to Landau damping.            #
+#   Nonlinear effects have been ignored for              #
+#   simplicity.                                          #
+#                                                        #
+#   Program Author: Tyler E. Bagwell                     #
+#   Date Last Edited: 2018/06/14                         #
+#                                                        #
+### -------------------------------------------------- ###
+
+import numpy as np 
+import matplotlib.pyplot as plt
+
+### --- Constants: --- ###
+
+z0 = 0              # z domain start
+z1 = 2*np.pi        # z domain finish
+L = z1 = z0         # z domain length
+
+k = 1               # k: wave number of E wave
+omega = 4           # omega: angular velocity of E wave
+e = -1              # computational charge of electron
+phi_0 = 1/2         # max electric potential
+v_phase = omega/k   # phase velocity of the E wave
+
+t0 = 0.0
+dt = 0.01
+
+Nv = 30                 # number of divisions of vz domain
+v_max_inti = 10.0       # max initial velocity
+dv = (v_max_inti*2)/Nv  # size of vz domain divisions
+
+
+
+### --- Functions: --- ##
+
+def force(z,t):
+    return e * phi_0 * k * np.sin(k*z - omega*t)    
+    
+def periodic_boundaries():
+    for i in range(len(positions)):
+        if (positions[i] < z0):
+            positions[i] += L
+        elif (positions[i] > z1):
+            positions[i] -= L 
+        else:
+            pass
+
+def motion(positions, velocities, t):
+    for i in range(len(velocities)):
+        velocities[i] += dt*force(positions[i],t)
+    for i in range(len(positions)):
+        positions[i] += dt*velocities[i]
+    periodic_boundaries()
+    
+def dist_function(velocities, distribution):
+    for i in range(len(distribution)):
+        for j in range(len(velocities)):
+            if (velocities[j] >= dv*i - v_max_inti) and (velocities[j] < dv*(i+1) - v_max_inti):
+                distribution[i] += 1
+    return distribution
+        
+    
+### --- Initialization: --- ###
+
+N = 20000              # Number of electrons 
+
+positions = []
+velocities = []
+distribution = [0. for i in range(Nv)]
+discrete_v = [((0.5+j)*dv - v_max_inti) for j in range(Nv)]
+
+for i in range(N):
+    z = np.random.uniform(z0, 2*np.pi)
+    v = np.random.normal(0, v_max_inti/3)
+    positions.append(z)
+    velocities.append(v)
+
+distribution_0 = dist_function(velocities, distribution)
+distribution = [0. for i in range(Nv)]
+
+    
+### --- Main Loop: --- ###
+
+NL = 500            # Number of Loops
+t = 0               # time
+
+for j in range(NL):
+    if (j%100 == 0):
+        print('Counts: %s' %j)
+    motion(positions,velocities,t)
+    t += dt
+    
+### --- Distribution and Plotting --- ###
+
+
+dist_function(velocities, distribution)
+
+plt.axvline(x=v_phase, color='gray', linestyle='--')
+plt.plot(discrete_v,distribution_0,color='blue')
+plt.plot(discrete_v,distribution,color='red')
+plt.legend(['$v_{phase}$', '$t=0$', 't={a}' .format(a=(NL*dt))])
+
+axes = plt.gca()
+axes.set_xlim([-10.1,10.1])
+axes.set_ylim([0,2500])
+plt.xlabel('$ v_{z} $')
+plt.ylabel('$ F (v_{z}) $')
+plt.show()
+
+number_particles = 0
+
+for i in range(len(distribution)):
+    number_particles += int(distribution[i])
+print(number_particles)
+    
