@@ -21,7 +21,7 @@ z1 = 2*np.pi        # z domain finish
 L = z1 = z0         # z domain length
 
 k = 1               # k: wave number of E wave
-omega = 4           # omega: angular velocity of E wave
+omega = 3           # omega: angular velocity of E wave
 e = -1              # computational charge of electron
 phi_0 = 1/2         # max electric potential
 v_phase = omega/k   # phase velocity of the E wave
