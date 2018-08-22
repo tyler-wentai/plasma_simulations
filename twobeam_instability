@@ -1,0 +1,174 @@
+# Simple electrostatic simulation of the two-beam (collisionless) plasma instability 
+# with two electron beams and an ion background. This program creates phase plots plot of the plasma. 
+
+import numpy as np
+import random as random
+import matplotlib.pyplot as plt
+
+### -------- INPUTS --------- ###
+
+part_num = 1500
+NGP = 36
+x_min, x_max = 0.0, 0.15
+L = x_max - x_min
+dx = L/NGP
+dt = 0.0005
+q = - 1
+
+### -------- INITIATION --------- ###
+
+beam_electrons = [[0.,0.] for i in range(part_num)]
+plasma_electrons = [[0.,0.] for i in range(part_num)]
+plasma_ions = [[0.,0.] for i in range(2*part_num)]
+
+def initiation(part_num, L, beam_electrons, plasma_electrons, plasma_ions):
+    
+    for i in range(part_num):
+    
+        x1 = random.random()*L
+        v1 = np.random.normal(2.0, 0.02)
+        beam_electrons[i][0] = x1
+        beam_electrons[i][1] = v1 
+    
+        x2 = random.random()*L
+        v2 = np.random.normal(-2.0, 0.02)
+        plasma_electrons[i][0] = x2
+        plasma_electrons[i][1] = v2
+    
+    for i in range(2*part_num):
+    
+        x3 = random.random()*L 
+        plasma_ions[i][0] = x3
+        
+        
+def phasespace_display(part_num, beam_electrons, plasma_electrons, plasma_ions, x_min, x_max):
+
+    beam_ex, plas_ex, plas_ix = [], [], []
+    beam_ev, plas_ev, plas_iv = [], [], []
+    
+    for i in range(part_num):
+        
+        beam_ex.append(beam_electrons[i][0])
+        beam_ev.append(beam_electrons[i][1])
+        
+        plas_ex.append(plasma_electrons[i][0])
+        plas_ev.append(plasma_electrons[i][1])
+        
+    for i in range(2*part_num):
+        
+        plas_ix.append(plasma_ions[i][0])
+        plas_iv.append(plasma_ions[i][1])
+    
+    plt.plot(plas_ix, plas_iv, 'o', color='blue', markersize=0.8)
+    plt.plot(beam_ex, beam_ev, 'o', color='g', markersize=0.8)
+    plt.plot(plas_ex, plas_ev, 'o', color='r', markersize=0.8)
+    
+    plt.title('Phase Space Plots of Plasma Beams w/ Ion Background')
+    plt.xlim(x_min,x_max)
+    plt.ylim(-7.0,7.0)
+    plt.show()
+
+
+def weighting(NGP, part_num, dx, beam_electrons, plasma_electrons, plasma_ions):
+
+    weights = [0. for i in range(NGP+1)]
+    
+    for i in range(part_num):
+        nj = np.floor(beam_electrons[i][0]/dx)
+        weights[int(nj)] += 1.0 - (beam_electrons[i][0]/dx - nj)
+        weights[int(nj)+1] += (beam_electrons[i][0]/dx - nj)
+        
+    for i in range(part_num):
+        nj = np.floor(plasma_electrons[i][0]/dx)
+        weights[int(nj)] += 1.0 - (plasma_electrons[i][0]/dx - nj)
+        weights[int(nj)+1] += (plasma_electrons[i][0]/dx - nj)
+        
+    for i in range(2*part_num):
+        nj = np.floor(plasma_ions[i][0]/dx)
+        weights[int(nj)] += -1.0 + (plasma_ions[i][0]/dx - nj)
+        weights[int(nj)+1] += -(plasma_ions[i][0]/dx - nj)
+        
+    weights[0] = weights[-1]
+    return weights[0:-1]
+    
+def efield_solver(NGP, part_num, dx, beam_electrons, plasma_electrons, plasma_ions, q):
+
+    weights = weighting(NGP, part_num, dx, beam_electrons, plasma_electrons, plasma_ions)
+    rho = np.array([(q*weights[i]*dx) for i in range(NGP)])
+    
+    A = np.zeros((NGP, NGP))
+    
+    for r in range(NGP):
+        for c in range(NGP):
+            if r == c:
+                A[r][c] = 2.0
+            elif r == c + 1:
+                A[r][c] = -1.0
+            elif c == r + 1:
+                A[r][c] = -1.0
+    
+    A[0][NGP-1] = -1.0
+    A[NGP-1][0] = -1.0
+    
+    phi = np.linalg.solve(A,rho)
+    phi = [phi[i] for i in range(NGP)]
+    
+    Efield = [0. for i in range(NGP)]
+    for i in range(NGP):
+        if i == 0:
+            Efield[0] = (phi[-1]-phi[i+1])/(2.0*dx)
+        elif i == NGP-1:
+            Efield[i] = (phi[i-1]-phi[0])/(2.0*dx)
+        else:
+            Efield[i] = (phi[i-1]-phi[i+1])/(2.0*dx)
+    
+    return Efield
+    
+def particle_pusher(NGP, part_num, dx, beam_electrons, plasma_electrons, plasma_ions, q, dt, x_max, x_min, L):
+
+    Efield = efield_solver(NGP, part_num, dx, beam_electrons, plasma_electrons, plasma_ions, q)
+    Force = [(q*Efield[i]) for i in range(NGP)]
+    Force.append(Force[0])
+    
+    for i in range(part_num):
+        nj = np.floor(beam_electrons[i][0]/dx)
+        w1 = 1.0 - (beam_electrons[i][0]/dx - nj)
+        w2 = (beam_electrons[i][0]/dx - nj)
+        
+        beam_electrons[i][1] += dt*(w1*Force[int(nj)] + w2*Force[int(nj)+1])
+        beam_electrons[i][0] += dt*beam_electrons[i][1]
+        
+        if beam_electrons[i][0] > x_max:
+            beam_electrons[i][0] -= L
+        if beam_electrons[i][0] < x_min:
+            beam_electrons[i][0] += L
+            
+    for i in range(part_num):
+        nj = np.floor(plasma_electrons[i][0]/dx)
+        w1 = 1.0 - (plasma_electrons[i][0]/dx - nj)
+        w2 = (plasma_electrons[i][0]/dx - nj)
+        
+        plasma_electrons[i][1] += dt*(w1*Force[int(nj)] + w2*Force[int(nj)+1])
+        plasma_electrons[i][0] += dt*plasma_electrons[i][1]
+        
+        if plasma_electrons[i][0] > x_max:
+            plasma_electrons[i][0] -= L
+        if plasma_electrons[i][0] < x_min:
+            plasma_electrons[i][0] += L
+        
+
+
+### ---- Program Loop ---- ###
+
+initiation(part_num, L, beam_electrons, plasma_electrons, plasma_ions)
+phasespace_display(part_num, beam_electrons, plasma_electrons, plasma_ions, x_min, x_max)
+
+for i in range(250):
+    particle_pusher(NGP, part_num, dx, beam_electrons, plasma_electrons, plasma_ions, q, dt, x_max, x_min, L)
+    if i%5 == 0:
+        print('step: {a}' .format(a=i))
+        phasespace_display(part_num, beam_electrons, plasma_electrons, plasma_ions, x_min, x_max)
+
+
+
+
